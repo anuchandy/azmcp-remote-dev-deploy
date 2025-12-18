@@ -52,7 +52,7 @@ Azure subscription with **Owner** or **User Access Administrator** permissions
 
 The `azd up` command will:
 
-1. Compile the Azure MCP Server for Linux x64, and build a Docker container image
+1. Compile the Azure MCP Server for Linux x64 musl, and build a Docker container image
 
 2. **Provision Infra**:
    - Azure Container Registry (ACR)

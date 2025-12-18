@@ -79,6 +79,14 @@ var baseEnvVars = [
     name: 'AZURE_LOG_LEVEL'
     value: 'verbose'
   }
+  {
+    name: 'Logging__LogLevel__Microsoft.AspNetCore.Server.Kestrel'
+    value: 'Information'
+  }
+  {
+    name: 'ASPNETCORE_URLS'
+    value: 'http://+:5000'
+  }
 ]
 
 var managedIdentityEnvVars = [
@@ -124,7 +132,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 8080
+        targetPort: 5000
         allowInsecure: false
         transport: 'http'
       }
