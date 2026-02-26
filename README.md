@@ -1,88 +1,52 @@
-# Azure MCP Server - dev build remote deployment
+# Remote host Azure MCP Server dev build
 
-This Azure Developer CLI (azd) template is for the **dev inner loop** where it build the Azure MCP Server source code with your local changes and deploy it as a remote HTTP service on Azure Container Apps.
+An Azure Developer CLI (azd) template to build the Azure MCP Server source code and deploy it as a remote HTTP service on Azure Container Apps (ACA).
 
 ## Prerequisites
 
-### Azure MCP Server source code
+1. Clone of the [microsoft/mcp](https://github.com/microsoft/mcp.git) source (with your local changes)
+2. Azure subscription with **Owner** or **User Access Administrator** access
+3. Dev Tools
+   * **[Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)** (`az login`)
+   * **[Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)** (`azd auth login`)
+   * **[Docker](https://docs.docker.com/get-docker/)** (Ensure Docker daemon is running)
+   * **[PowerShell 7+ (pwsh)](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)**
 
-Clone of the [microsoft/mcp](https://github.com/microsoft/mcp.git) source
+## azd deploy
 
-### Azure Subscription
+1. **Get azd-template** -  Download azd-template [azmcp-remote-dev-deploy.zip](https://github.com/anuchandy/azmcp-remote-dev-deploy/blob/main/azmcp-remote-dev-deploy.zip), extract and copy it to the root of your local `microsoft/mcp` clone.
 
-Azure subscription with **Owner** or **User Access Administrator** permissions
-
-### Required Tools
-
-1. **Azure CLI [az](https://learn.microsoft.com/cli/azure/install-azure-cli)**
-   - Login: `az login`
-
-2. **Azure Developer CLI [azd](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)**
-   - Login: `azd auth login`
-
-3. **[Docker](https://docs.docker.com/get-docker/)**
-   - Ensure Docker daemon is running
-
-4. **PowerShell [pwsh](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)**
-   - Required for deployment scripts that azd runs
-
-## Deploy
-
-1. **Copy azd-template to local microsoft/mcp clone**
-
-    - Download azd-template [azmcp-remote-dev-deploy.zip](https://github.com/anuchandy/azmcp-remote-dev-deploy/blob/main/azmcp-remote-dev-deploy.zip), extract and copy it to the root of your local `microsoft/mcp` repo clone.
-
-2. **Switch to the directory from PowerShell Core**
+2. **Open azd-template in pwsh terminal**
    ```bash
    pwsh
    cd /code/mcp/azmcp-remote-dev-deploy
    ```
 
-3. **Initialize azd environment**
+3. **Run azd-template**
    ```bash
    azd init
-   ```
-
-4. **Deploy**
-   ```bash
    azd up
    ```
 
-## What Gets Deployed
+<details>
 
-The `azd up` command will:
+<summary>Behind azd up:</summary>
 
-1. Compile the Azure MCP Server for Linux x64 musl, and build a Docker container image
+The `azd up` command:
+
+1. Compile the `Azure.Mcp.Server` in your local clone of `microsoft/mcp`, and build Linux x64 musl Docker container image
 
 2. **Provision Infra**:
    - Azure Container Registry (ACR)
-   - Entra ID Application - for (OBO) OAuth2 authentication
-   - Application Insights (optional)
+   - Entra ID Application - for OAuth2 authentication
 
 3. **Deploy**:
    - Push Docker image to ACR
-   - Deploy Container App using the image, with authentication and environment variables configured
+   - Deploy Azure Container App (ACA) using the image, with authentication and environment variables configured
 
-## Configuration
+</details>
 
-Deployment configurations are managed through `infra/main.parameters.json`:
-
-```sh
-"buildConfiguration": {
-  "value": "Release"  # or "Debug"
-}
-"outgoingAuthStrategy": {
-  "value": "UseHostingEnvironmentIdentity"  # or "UseOnBehalfOf"
-}
-"namespaces": {
-  "value": ["storage"]  # or [] for all namespaces
-}
-"appInsightsConnectionString": {
-  "value": "DISABLED"  # or existing connection string, or "" to create new
-}
-```
-
-## Outputs
+## azd output
 
 After deployment, retrieve azd outputs:
 
@@ -122,25 +86,18 @@ OUTGOING_AUTH_STRATEGY="UseHostingEnvironmentIdentity"
 
 </details>
 
-## Outgoing Authentication
+## azmcp authentication
 
-#### UseHostingEnvironmentIdentity
+#### Managed Identity 
 
-By default, the azmcp is configured to use the **Managed Identity** of the Azure Container App (see `UseHostingEnvironmentIdentity` in [Configuration](#configuration)). 
-
-You must assign the necessary Azure RBAC roles to the Container App's managed identity principal ID for the Azure resources that will be accessed through MCP tool execution.
-
-To get the Container App's managed identity principal ID:
-```bash
-azd env get-value CONTAINER_APP_PRINCIPAL_ID
-```
+By default, the azmcp is configured to use the **Managed Identity** of the Azure Container App to authenticate downstream Azure services during tool execution. You must assign the necessary Azure RBAC roles to the Container App's managed identity for the Azure services that will be accessed.
 
 <details>
 
 <summary>Example role assignments:</summary>
 
 ```bash
-# Get the principal ID
+# Get the ACA's Managed Identity principal ID
 PRINCIPAL_ID=$(azd env get-value CONTAINER_APP_PRINCIPAL_ID)
 
 # Assign Storage Blob Data Contributor role
@@ -158,11 +115,11 @@ az role assignment create \
 
 </details>
 
-#### UseOnBehalfOf
+#### On Behalf Of (OBO)
 
 The deployed Entra app is configured with delegated permissions for Azure Storage (`user_impersonation` scope), enabling the On-Behalf-Of (OBO) flow for storage operations.
 
-To run azmcp in OBO mode so storage tools can be called using OBO, update `infra/main.parameters.json`:
+To run azmcp in OBO authentication mode so storage tools can be called using OBO, update `infra/main.parameters.json`:
 
 ```json
 "outgoingAuthStrategy": {

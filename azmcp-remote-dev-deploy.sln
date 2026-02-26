@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "clients", "clients", "{9123F88B-E531-3118-42D7-ED8CEF4BD00E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "csharp", "csharp", "{C1B4CF8E-6084-C9F6-E2FD-21F2A8C27FEB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "McpClient", "clients\csharp\McpClient.csproj", "{E21CE145-8D25-88B2-4B1F-831627D19918}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E21CE145-8D25-88B2-4B1F-831627D19918}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E21CE145-8D25-88B2-4B1F-831627D19918}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E21CE145-8D25-88B2-4B1F-831627D19918}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E21CE145-8D25-88B2-4B1F-831627D19918}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C1B4CF8E-6084-C9F6-E2FD-21F2A8C27FEB} = {9123F88B-E531-3118-42D7-ED8CEF4BD00E}
+		{E21CE145-8D25-88B2-4B1F-831627D19918} = {C1B4CF8E-6084-C9F6-E2FD-21F2A8C27FEB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3B3B53B8-F967-4E19-A1CA-DEF6C91E7596}
+	EndGlobalSection
+EndGlobal
