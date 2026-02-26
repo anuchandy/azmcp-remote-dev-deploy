@@ -3,47 +3,6 @@
 
 $ErrorActionPreference = 'Stop'
 
-function Update-BuildInfoFile {
-    param(
-        [Parameter(Mandatory)]
-        [string]$RepoRoot,
-        [Parameter(Mandatory)]
-        [string]$ServerName,
-        [Parameter(Mandatory)]
-        [string]$PlatformName,
-        [Parameter(Mandatory)]
-        [string]$ArtifactPath
-    )
-
-    $buildInfoPath = Join-Path $RepoRoot ".work/build_info.json"
-    if (-not (Test-Path $buildInfoPath)) {
-        Write-Host "ERROR: build_info.json not found at $buildInfoPath" -ForegroundColor Red
-        return $false
-    }
-
-    $buildInfo = Get-Content $buildInfoPath -Raw | ConvertFrom-Json
-
-    $server = $buildInfo.servers | Where-Object { $_.name -eq $ServerName }
-    if (-not $server) {
-        Write-Host "ERROR: Server '$ServerName' not found in build_info.json" -ForegroundColor Red
-        return $false
-    }
-
-    $platform = $server.platforms | Where-Object { $_.name -eq $PlatformName }
-    if (-not $platform) {
-        Write-Host "ERROR: Platform '$PlatformName' not found for server '$ServerName'" -ForegroundColor Red
-        return $false
-    }
-
-    $platform.artifactPath = $ArtifactPath
-    Write-Host "Updated artifactPath for $PlatformName to: $ArtifactPath" -ForegroundColor Gray
-
-    $buildInfo | ConvertTo-Json -Depth 10 | Set-Content $buildInfoPath -Encoding UTF8
-    Write-Host "Saved updated build_info.json" -ForegroundColor Gray
-
-    return $true
-}
-
 $SERVER_NAME = 'Azure.Mcp.Server'
 $PLATFORM_NAME = 'linux-musl-x64-docker'
 
@@ -72,17 +31,6 @@ Write-Host "Generating build info for $SERVER_NAME" -ForegroundColor Yellow
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: New-BuildInfo failed" -ForegroundColor Red
-    exit 1
-}
-
-# Patch build-info file to fix-up artifactPath for $PLATFORM_NAME platform
-$patchResult = Update-BuildInfoFile `
-    -RepoRoot $REPO_ROOT `
-    -ServerName $SERVER_NAME `
-    -PlatformName $PLATFORM_NAME `
-    -ArtifactPath "$SERVER_NAME/linux-musl-x64"
-
-if (-not $patchResult) {
     exit 1
 }
 
