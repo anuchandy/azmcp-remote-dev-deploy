@@ -1,14 +1,18 @@
 # Remote host Azure MCP Server dev build
 
-An Azure Developer CLI (azd) template to build the Azure MCP Server source code and deploy it as a remote HTTP service on Azure Container Apps (ACA).
+This repo includes 
+
+1. An azd template to build the Azure MCP Server source code and deploy it as a remote HTTP service on Azure Container Apps (ACA)
+2. MCP clients to connect to ACA
 
 ## Prerequisites
 
 1. Clone of the [microsoft/mcp](https://github.com/microsoft/mcp.git) source (with your local changes)
 2. Azure subscription with **Owner** or **User Access Administrator** access
 3. Dev Tools
-   * **[Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)** (`az login`)
-   * **[Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)** (`azd auth login`)
+   * **[azd](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)** (`azd auth login`) 
+   * **[az-cli](https://learn.microsoft.com/cli/azure/install-azure-cli)** (`az login`)
+
    * **[Docker](https://docs.docker.com/get-docker/)** (Ensure Docker daemon is running)
    * **[PowerShell 7+ (pwsh)](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)**
 
@@ -86,9 +90,7 @@ OUTGOING_AUTH_STRATEGY="UseHostingEnvironmentIdentity"
 
 </details>
 
-## azmcp authentication
-
-#### Managed Identity 
+## azmcp azure authentication
 
 By default, the azmcp is configured to use the **Managed Identity** of the Azure Container App to authenticate downstream Azure services during tool execution. You must assign the necessary Azure RBAC roles to the Container App's managed identity for the Azure services that will be accessed.
 
@@ -115,23 +117,9 @@ az role assignment create \
 
 </details>
 
-#### On Behalf Of (OBO)
+## clients
 
-The deployed Entra app is configured with delegated permissions for Azure Storage (`user_impersonation` scope), enabling the On-Behalf-Of (OBO) flow for storage operations.
-
-To run azmcp in OBO authentication mode so storage tools can be called using OBO, update `infra/main.parameters.json`:
-
-```json
-"outgoingAuthStrategy": {
-  "value": "UseOnBehalfOf"
-}
-```
-
-Then redeploy with `azd up`.
-
-## Clients
-
-Sample MCP clients are available in the `clients/` directory:
+Sample MCP clients to connect to ACA are available in the `clients/` directory:
 
 - **[VS Code](clients/vscode/README.md)** - Connect using VS Code's built-in MCP support
 - **[C# McpClient](clients/csharp/README.md)** - .NET console application
