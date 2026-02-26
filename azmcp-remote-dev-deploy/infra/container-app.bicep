@@ -87,6 +87,10 @@ var baseEnvVars = [
     name: 'ASPNETCORE_URLS'
     value: 'http://+:5000'
   }
+  {
+    name: 'AZURE_MCP_DANGEROUSLY_ENABLE_FORWARDED_HEADERS'
+    value: 'true'
+  }
 ]
 
 var managedIdentityEnvVars = [
