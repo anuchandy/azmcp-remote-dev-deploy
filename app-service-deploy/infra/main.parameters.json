@@ -6,22 +6,28 @@
       "value": "${AZURE_LOCATION}"
     },
     "entraAppDisplayName": {
-      "value": "Azure MCP Remote Server API"
+      "value": "Azure MCP AppService Server API"
     },
-    "acaName": {
-      "value": "azure-mcp-remote-server"
+    "entraAppClientDisplayName": {
+      "value": "Azure MCP AppService Client"
+    },
+    "appServiceName": {
+      "value": "azure-mcp-appservice"
     },
     "appInsightsConnectionString": {
       "value": "DISABLED"
     },
     "outgoingAuthStrategy": {
-      "value": "UseHostingEnvironmentIdentity"
+      "value": "UseOnBehalfOf"
     },
     "buildConfiguration": {
       "value": "Release"
     },
     "namespaces": {
       "value": ["storage"]
+    },
+    "serviceManagementReference": {
+      "value": "2f3ca24b-3558-45f8-956b-648d589de813"
     }
   }
 }

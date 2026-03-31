@@ -23,6 +23,15 @@ param appInsightsConnectionString string = ''
 @allowed(['UseHostingEnvironmentIdentity', 'UseOnBehalfOf'])
 param outgoingAuthStrategy string = 'UseHostingEnvironmentIdentity'
 
+@description('Client ID of the user-assigned managed identity (required for OBO)')
+param userAssignedManagedIdentityClientId string = ''
+
+@description('Resource ID of the user-assigned managed identity (required for OBO)')
+param userAssignedManagedIdentityId string = ''
+
+@description('The FIC token exchange audience URI. Varies by cloud: api://AzureADTokenExchange (public), api://AzureADTokenExchangeUSGov (US Gov), api://AzureADTokenExchangeChina (China).')
+param tokenExchangeAudience string = 'api://AzureADTokenExchange'
+
 @description('Namespaces to enable (empty means all namespaces)')
 param namespaces array = []
 
@@ -91,9 +100,13 @@ var baseEnvVars = [
     name: 'AZURE_MCP_DANGEROUSLY_ENABLE_FORWARDED_HEADERS'
     value: 'true'
   }
+  {
+    name: 'AZURE_MCP_DANGEROUSLY_ALLOW_INSECURE_HTTP'
+    value: 'true'
+  }
 ]
 
-var managedIdentityEnvVars = [
+var hostingEnvIdentityEnvVars = [
   {
     name: 'AZURE_TOKEN_CREDENTIALS'
     value: 'managedidentitycredential'
@@ -104,9 +117,24 @@ var managedIdentityEnvVars = [
   }
 ]
 
+var oboEnvVars = [
+  {
+    name: 'AzureAd__ClientCredentials__0__SourceType'
+    value: 'SignedAssertionFromManagedIdentity'
+  }
+  {
+    name: 'AzureAd__ClientCredentials__0__ManagedIdentityClientId'
+    value: userAssignedManagedIdentityClientId
+  }
+  {
+    name: 'AzureAd__ClientCredentials__0__TokenExchangeUrl'
+    value: tokenExchangeAudience
+  }
+]
+
 var containerEnvVars = outgoingAuthStrategy == 'UseHostingEnvironmentIdentity' 
-  ? concat(baseEnvVars, managedIdentityEnvVars)
-  : baseEnvVars
+  ? concat(baseEnvVars, hostingEnvIdentityEnvVars)
+  : concat(baseEnvVars, oboEnvVars)
 
 // Create Container App Environment with unique name
 resource containerAppEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -128,7 +156,12 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: containerAppName
   location: location
-  identity: {
+  identity: outgoingAuthStrategy == 'UseOnBehalfOf' ? {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedManagedIdentityId}': {}
+    }
+  } : {
     type: 'SystemAssigned'
   }
   properties: {
@@ -187,18 +220,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-// Assign AcrPull role to Container App's managed identity
-resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, containerApp.id, 'AcrPull')
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
-    principalId: containerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output containerAppName string = containerApp.name
-output containerAppPrincipalId string = containerApp.identity.principalId
+output containerAppPrincipalId string = containerApp.identity.type == 'SystemAssigned' ? containerApp.identity.principalId : ''
 output containerAppEnvironmentId string = containerAppEnvironment.id

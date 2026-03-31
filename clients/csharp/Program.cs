@@ -6,11 +6,26 @@ using Microsoft.Extensions.Configuration;
 using ModelContextProtocol.Client;
 
 // main:start
-var mcpServerUrl = GetMcpServerUrl();
+var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+
+var configuration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: false)
+        .AddJsonFile($"appsettings.{environment}.json", optional: true)
+        .AddCommandLine(args)
+        .Build();
+
+var listAccounts = configuration.GetValue<bool?>("list-accounts") ?? false;
+
+var mcpServerUrl = GetMcpServerUrl(configuration);
 Console.WriteLine($"MCP Server: {mcpServerUrl}");
 
 var (scopes, tenantId) = await GetOAuthProtectedResourceMetadataAsync(mcpServerUrl);
-var accessToken = await GetAccessTokenAsync(tenantId, scopes);
+
+// Use configured client ID (e.g. the deployed OBO client app), or fall back to VS Code's pre-authorized app ID
+var configuredClientId = configuration["EntraClientClientId"];
+var clientId = string.IsNullOrEmpty(configuredClientId) ? "aebc6443-996d-45c2-90f0-388ff96faa56" : configuredClientId;
+var accessToken = await GetAccessTokenAsync(clientId, tenantId, scopes);
 
 var client = new HttpClient
 {
@@ -56,13 +71,34 @@ else
 }
 // main:end
 
-static string GetMcpServerUrl()
+// tool-call:start
+if (listAccounts)
 {
-    var configuration = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile("appsettings.json", optional: false)
-        .Build();
+    Console.WriteLine("\n--- Calling storage_account_get Tool ---");
 
+    var subscriptionId = configuration["SubscriptionId"];
+    if (string.IsNullOrEmpty(subscriptionId))
+    {
+        throw new InvalidOperationException("SubscriptionId is not configured");
+    }
+
+    var toolCallArgs = new Dictionary<string, object?>
+    {
+        { "subscription", subscriptionId }
+    };
+
+    var toolResult = await mcpClient.CallToolAsync("storage_account_get", toolCallArgs);
+    Console.WriteLine($"Tool Result:");
+    foreach (var content in toolResult.Content)
+    {
+        Console.WriteLine($"  Type: {content.Type}");
+        Console.WriteLine($"  Data: {JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true })}");
+    }
+}
+// tool-call:end
+
+static string GetMcpServerUrl(IConfiguration configuration)
+{
     var mcpServerUrl = configuration["McpServer:Url"];
     if (string.IsNullOrEmpty(mcpServerUrl))
     {
@@ -107,16 +143,13 @@ static async Task<(string[] Scopes, string TenantId)> GetOAuthProtectedResourceM
     return (scopes, tenantId);
 }
 
-static async Task<string> GetAccessTokenAsync(string tenantId, string[] scopes)
+static async Task<string> GetAccessTokenAsync(string clientId, string tenantId, string[] scopes)
 {
     Console.WriteLine($"Acquiring access token for scope(s) '{string.Join(", ", scopes)}' with tenant '{tenantId}'");
     
     var credential = new InteractiveBrowserCredential(new InteractiveBrowserCredentialOptions
     {
-        // Use VS Code's app ID because it's pre-authorized in the Entra app
-        // deployed by azmcp-remote-dev-deploy/infra/modules/entra-app.bicep,
-        // allowing token acquisition without requiring admin consent.
-        ClientId = "aebc6443-996d-45c2-90f0-388ff96faa56",
+        ClientId = clientId,
         TenantId = tenantId
     });
 

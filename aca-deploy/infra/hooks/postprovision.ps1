@@ -63,10 +63,15 @@ Write-Host ""
 $AZURE_RESOURCE_GROUP = azd env get-value AZURE_RESOURCE_GROUP
 $AZURE_LOCATION = azd env get-value AZURE_LOCATION
 $CONTAINER_APP_NAME = azd env get-value CONTAINER_APP_NAME
-$ENTRA_APP_CLIENT_ID = azd env get-value ENTRA_APP_CLIENT_ID
 $AZURE_TENANT_ID = azd env get-value AZURE_TENANT_ID
 $APP_INSIGHTS_CONNECTION_STRING = azd env get-value APPLICATION_INSIGHTS_CONNECTION_STRING
 $OUTGOING_AUTH_STRATEGY = azd env get-value OUTGOING_AUTH_STRATEGY
+
+if ($OUTGOING_AUTH_STRATEGY -eq 'UseOnBehalfOf') {
+    $ENTRA_APP_CLIENT_ID = azd env get-value ENTRA_APP_OBO_SERVER_ID
+} else {
+    $ENTRA_APP_CLIENT_ID = azd env get-value ENTRA_APP_CLIENT_ID
+}
 $NAMESPACES_JSON = azd env get-value NAMESPACES
 
 if ([string]::IsNullOrWhiteSpace($CONTAINER_APP_NAME)) {
@@ -81,20 +86,35 @@ Write-Host "Deploying/Updating Container App..." -ForegroundColor Yellow
 
 $ACA_BICEP_PATH = Join-Path $PSScriptRoot "../container-app.bicep"
 
-$deployment = az deployment group create `
-    --resource-group $AZURE_RESOURCE_GROUP `
-    --template-file $ACA_BICEP_PATH `
-    --parameters containerAppName=$CONTAINER_APP_NAME `
-    --parameters acrLoginServer=$ACR_LOGIN_SERVER `
-    --parameters acrImage=$ACR_IMAGE `
-    --parameters azureAdTenantId=$AZURE_TENANT_ID `
-    --parameters azureAdClientId=$ENTRA_APP_CLIENT_ID `
-    --parameters appInsightsConnectionString=$APP_INSIGHTS_CONNECTION_STRING `
-    --parameters outgoingAuthStrategy=$OUTGOING_AUTH_STRATEGY `
-    --parameters namespaces=$NAMESPACES_JSON `
-    --parameters location=$AZURE_LOCATION `
-    --query 'properties.outputs' `
-    -o json | ConvertFrom-Json
+$deployParams = @(
+    "--resource-group", $AZURE_RESOURCE_GROUP,
+    "--template-file", $ACA_BICEP_PATH,
+    "--parameters", "containerAppName=$CONTAINER_APP_NAME",
+    "--parameters", "acrLoginServer=$ACR_LOGIN_SERVER",
+    "--parameters", "acrImage=$ACR_IMAGE",
+    "--parameters", "azureAdTenantId=$AZURE_TENANT_ID",
+    "--parameters", "azureAdClientId=$ENTRA_APP_CLIENT_ID",
+    "--parameters", "appInsightsConnectionString=$APP_INSIGHTS_CONNECTION_STRING",
+    "--parameters", "outgoingAuthStrategy=$OUTGOING_AUTH_STRATEGY",
+    "--parameters", "namespaces=$NAMESPACES_JSON",
+    "--parameters", "location=$AZURE_LOCATION",
+    "--query", "properties.outputs",
+    "-o", "json"
+)
+
+if ($OUTGOING_AUTH_STRATEGY -eq 'UseOnBehalfOf') {
+    $MANAGED_IDENTITY_CLIENT_ID = azd env get-value MANAGED_IDENTITY_CLIENT_ID
+    $MANAGED_IDENTITY_ID = azd env get-value MANAGED_IDENTITY_ID
+    $TOKEN_EXCHANGE_AUDIENCE = azd env get-value TOKEN_EXCHANGE_AUDIENCE
+
+    $deployParams += @(
+        "--parameters", "userAssignedManagedIdentityClientId=$MANAGED_IDENTITY_CLIENT_ID",
+        "--parameters", "userAssignedManagedIdentityId=$MANAGED_IDENTITY_ID",
+        "--parameters", "tokenExchangeAudience=$TOKEN_EXCHANGE_AUDIENCE"
+    )
+}
+
+$deployment = az deployment group create @deployParams | ConvertFrom-Json
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Failed to deploy Container App" -ForegroundColor Red
@@ -105,4 +125,17 @@ $CONTAINER_APP_URL = $deployment.containerAppUrl.value
 $CONTAINER_APP_PRINCIPAL_ID = $deployment.containerAppPrincipalId.value
 
 azd env set CONTAINER_APP_URL $CONTAINER_APP_URL
-azd env set CONTAINER_APP_PRINCIPAL_ID $CONTAINER_APP_PRINCIPAL_ID
+if (-not [string]::IsNullOrWhiteSpace($CONTAINER_APP_PRINCIPAL_ID)) {
+    azd env set CONTAINER_APP_PRINCIPAL_ID $CONTAINER_APP_PRINCIPAL_ID
+}
+
+Write-Host ""
+Write-Host "Deployment complete!" -ForegroundColor Green
+Write-Host "Container App URL: $CONTAINER_APP_URL" -ForegroundColor Cyan
+
+if ($OUTGOING_AUTH_STRATEGY -eq 'UseOnBehalfOf') {
+    $SERVER_APP_ID = azd env get-value ENTRA_APP_OBO_SERVER_ID
+    Write-Host ""
+    Write-Host "OBO: Grant admin consent for Azure Resource Manager and Storage user_impersonation:" -ForegroundColor Yellow
+    Write-Host "  az ad app permission admin-consent --id $SERVER_APP_ID" -ForegroundColor White
+}
